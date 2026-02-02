@@ -10,6 +10,9 @@ export default function Dashboard() {
   const [scheduleMinutes, setScheduleMinutes] = useState('');
   const [scheduleSeconds, setScheduleSeconds] = useState('');
   const [timeRemaining, setTimeRemaining] = useState('');
+  const [scheduleActive, setScheduleActive] = useState(false);
+  const [scheduleOnTime, setScheduleOnTime] = useState('');
+  const [scheduleOffTime, setScheduleOffTime] = useState('');
 
   const API_BASE = 'https://apiaaspassmartbox.vercel.app';
 
@@ -68,6 +71,45 @@ export default function Dashboard() {
     setLoading(false);
   };
 
+  // Set Time-based Schedule
+  const setTimeSchedule = async () => {
+    if (!scheduleOnTime || !scheduleOffTime) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/set-schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ onTime: scheduleOnTime, offTime: scheduleOffTime })
+      });
+      const data = await response.json();
+      
+      setScheduleActive(data.scheduleActive);
+      setScheduleOnTime(data.scheduleOnTime);
+      setScheduleOffTime(data.scheduleOffTime);
+    } catch (error) {
+      console.error('Error setting schedule:', error);
+    }
+    setLoading(false);
+  };
+
+  // Clear Schedule
+  const clearSchedule = async () => {
+    setLoading(true);
+    try {
+      await fetch(`${API_BASE}/api/clear-schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      setScheduleActive(false);
+      setScheduleOnTime('');
+      setScheduleOffTime('');
+    } catch (error) {
+      console.error('Error clearing schedule:', error);
+    }
+    setLoading(false);
+  };
+
   // Update time remaining
   useEffect(() => {
     if (timerActive && timerEndTime) {
@@ -102,6 +144,9 @@ export default function Dashboard() {
         setTimerActive(data.timerActive || false);
         setTimerEndTime(data.timerEndTime);
         setTimerDuration(data.timerDuration || 0);
+        setScheduleActive(data.scheduleActive || false);
+        setScheduleOnTime(data.scheduleOnTime || '');
+        setScheduleOffTime(data.scheduleOffTime || '');
       } catch (error) {
         console.error('Error fetching status:', error);
       }
@@ -234,6 +279,72 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Time-based Schedule Card */}
+        <div className="mt-6 bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+          <div className="text-center">
+            <h2 className="text-2xl font-semibold text-white mb-4">
+              🕐 Time-based Schedule
+            </h2>
+
+            {scheduleActive ? (
+              <div className="mb-6">
+                <div className="text-green-400 text-lg font-medium mb-3">
+                  Schedule Active
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-white/10 p-3 rounded-lg">
+                    <div className="text-slate-300 text-sm">ON Time</div>
+                    <div className="text-white text-xl font-mono">{scheduleOnTime}</div>
+                  </div>
+                  <div className="bg-white/10 p-3 rounded-lg">
+                    <div className="text-slate-300 text-sm">OFF Time</div>
+                    <div className="text-white text-xl font-mono">{scheduleOffTime}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={clearSchedule}
+                  disabled={loading}
+                  className="w-full py-3 px-6 rounded-xl font-semibold text-white bg-red-500 hover:bg-red-600 transition-all duration-200 shadow-lg shadow-red-500/30 hover:scale-105 disabled:opacity-50"
+                >
+                  Clear Schedule
+                </button>
+              </div>
+            ) : (
+              <div className="mb-6">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="text-slate-300 text-sm block mb-2">ON Time</label>
+                    <input
+                      type="time"
+                      value={scheduleOnTime}
+                      onChange={(e) => setScheduleOnTime(e.target.value)}
+                      className="w-full p-3 rounded-lg bg-white/20 border border-white/30 text-white text-center text-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-300 text-sm block mb-2">OFF Time</label>
+                    <input
+                      type="time"
+                      value={scheduleOffTime}
+                      onChange={(e) => setScheduleOffTime(e.target.value)}
+                      className="w-full p-3 rounded-lg bg-white/20 border border-white/30 text-white text-center text-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+                
+                <button
+                  onClick={setTimeSchedule}
+                  disabled={loading || !scheduleOnTime || !scheduleOffTime}
+                  className="w-full py-3 px-6 rounded-xl font-semibold text-white bg-purple-500 hover:bg-purple-600 transition-all duration-200 shadow-lg shadow-purple-500/30 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  Set Schedule
+                </button>
+                <p className="text-slate-400 text-xs mt-2">Example: 19:00 to 19:30 (7 PM to 7:30 PM)</p>
+              </div>
+            )}
           </div>
         </div>
 
