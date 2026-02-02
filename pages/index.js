@@ -13,6 +13,9 @@ export default function Dashboard() {
   const [scheduleActive, setScheduleActive] = useState(false);
   const [scheduleOnTime, setScheduleOnTime] = useState('');
   const [scheduleOffTime, setScheduleOffTime] = useState('');
+  const [scheduleType, setScheduleType] = useState('daily');
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleDays, setScheduleDays] = useState([]);
 
   const API_BASE = 'https://apiaaspassmartbox.vercel.app';
 
@@ -74,19 +77,30 @@ export default function Dashboard() {
   // Set Time-based Schedule
   const setTimeSchedule = async () => {
     if (!scheduleOnTime || !scheduleOffTime) return;
+    if (scheduleType === 'once' && !scheduleDate) return;
+    if (scheduleType === 'weekly' && scheduleDays.length === 0) return;
     
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE}/api/set-schedule`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ onTime: scheduleOnTime, offTime: scheduleOffTime })
+        body: JSON.stringify({ 
+          onTime: scheduleOnTime, 
+          offTime: scheduleOffTime,
+          type: scheduleType,
+          date: scheduleDate,
+          days: scheduleDays
+        })
       });
       const data = await response.json();
       
       setScheduleActive(data.scheduleActive);
       setScheduleOnTime(data.scheduleOnTime);
       setScheduleOffTime(data.scheduleOffTime);
+      setScheduleType(data.scheduleType);
+      setScheduleDate(data.scheduleDate || '');
+      setScheduleDays(data.scheduleDays || []);
     } catch (error) {
       console.error('Error setting schedule:', error);
     }
@@ -104,6 +118,9 @@ export default function Dashboard() {
       setScheduleActive(false);
       setScheduleOnTime('');
       setScheduleOffTime('');
+      setScheduleType('daily');
+      setScheduleDate('');
+      setScheduleDays([]);
     } catch (error) {
       console.error('Error clearing schedule:', error);
     }
@@ -147,6 +164,9 @@ export default function Dashboard() {
         setScheduleActive(data.scheduleActive || false);
         setScheduleOnTime(data.scheduleOnTime || '');
         setScheduleOffTime(data.scheduleOffTime || '');
+        setScheduleType(data.scheduleType || 'daily');
+        setScheduleDate(data.scheduleDate || '');
+        setScheduleDays(data.scheduleDays || []);
       } catch (error) {
         console.error('Error fetching status:', error);
       }
@@ -314,6 +334,61 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="mb-6">
+                {/* Schedule Type Selector */}
+                <div className="mb-4">
+                  <label className="text-slate-300 text-sm block mb-2">Schedule Type</label>
+                  <select
+                    value={scheduleType}
+                    onChange={(e) => setScheduleType(e.target.value)}
+                    className="w-full p-3 rounded-lg bg-white/20 border border-white/30 text-white text-center text-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="once" className="bg-slate-800">One Time</option>
+                    <option value="daily" className="bg-slate-800">Daily</option>
+                    <option value="weekly" className="bg-slate-800">Weekly</option>
+                  </select>
+                </div>
+
+                {/* Date picker for one-time */}
+                {scheduleType === 'once' && (
+                  <div className="mb-4">
+                    <label className="text-slate-300 text-sm block mb-2">Date</label>
+                    <input
+                      type="date"
+                      value={scheduleDate}
+                      onChange={(e) => setScheduleDate(e.target.value)}
+                      className="w-full p-3 rounded-lg bg-white/20 border border-white/30 text-white text-center text-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                )}
+
+                {/* Day selector for weekly */}
+                {scheduleType === 'weekly' && (
+                  <div className="mb-4">
+                    <label className="text-slate-300 text-sm block mb-2">Select Days</label>
+                    <div className="grid grid-cols-7 gap-2">
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                        <button
+                          key={index}
+                          onClick={() => {
+                            if (scheduleDays.includes(index)) {
+                              setScheduleDays(scheduleDays.filter(d => d !== index));
+                            } else {
+                              setScheduleDays([...scheduleDays, index]);
+                            }
+                          }}
+                          className={`py-2 px-1 rounded-lg text-xs font-medium transition-all ${
+                            scheduleDays.includes(index)
+                              ? 'bg-purple-500 text-white'
+                              : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                          }`}
+                        >
+                          {day}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="text-slate-300 text-sm block mb-2">ON Time</label>
@@ -337,12 +412,16 @@ export default function Dashboard() {
                 
                 <button
                   onClick={setTimeSchedule}
-                  disabled={loading || !scheduleOnTime || !scheduleOffTime}
+                  disabled={loading || !scheduleOnTime || !scheduleOffTime || (scheduleType === 'once' && !scheduleDate) || (scheduleType === 'weekly' && scheduleDays.length === 0)}
                   className="w-full py-3 px-6 rounded-xl font-semibold text-white bg-purple-500 hover:bg-purple-600 transition-all duration-200 shadow-lg shadow-purple-500/30 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
                   Set Schedule
                 </button>
-                <p className="text-slate-400 text-xs mt-2">Example: 19:00 to 19:30 (7 PM to 7:30 PM)</p>
+                <p className="text-slate-400 text-xs mt-2">
+                  {scheduleType === 'once' && 'One-time schedule on selected date'}
+                  {scheduleType === 'daily' && 'Repeats every day'}
+                  {scheduleType === 'weekly' && 'Repeats on selected days'}
+                </p>
               </div>
             )}
           </div>
