@@ -17,7 +17,7 @@ export default function Dashboard() {
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleDays, setScheduleDays] = useState([]);
 
-  const API_BASE = 'https://apiaaspassmartbox.vercel.app';
+  const API_BASE = 'https://aaspas-smart-box-backend.onrender.com';
 
   // Optimistic UI Toggle
   const toggleDevice = async () => {
