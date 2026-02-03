@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [scheduleDays, setScheduleDays] = useState([]);
 
   const API_BASE = 'https://api.aaspasindia.com/api/smart-box';
+  const API_KEY = 'aaspas_smart_box_2025_secret_key'; // 🔐 Security Key
 
   // Optimistic UI Toggle
   const toggleDevice = async () => {
@@ -28,7 +29,10 @@ export default function Dashboard() {
     try {
       const response = await fetch(`${API_BASE}/toggle`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-api-key': API_KEY
+        }
       });
       const data = await response.json();
       
@@ -57,7 +61,10 @@ export default function Dashboard() {
     try {
       const response = await fetch(`${API_BASE}/schedule`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-api-key': API_KEY
+        },
         body: JSON.stringify({ minutes: totalMinutes })
       });
       const data = await response.json();
@@ -84,7 +91,10 @@ export default function Dashboard() {
     try {
       const response = await fetch(`${API_BASE}/set-schedule`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-api-key': API_KEY
+        },
         body: JSON.stringify({ 
           onTime: scheduleOnTime, 
           offTime: scheduleOffTime,
@@ -113,7 +123,10 @@ export default function Dashboard() {
     try {
       await fetch(`${API_BASE}/clear-schedule`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-api-key': API_KEY
+        }
       });
       setScheduleActive(false);
       setScheduleOnTime('');
@@ -154,7 +167,9 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await fetch(`${API_BASE}/status`);
+        const response = await fetch(`${API_BASE}/status`, {
+          headers: { 'x-api-key': API_KEY }
+        });
         const data = await response.json();
         
         setStatus(data.status === '1' || data.status === true);
