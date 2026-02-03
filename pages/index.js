@@ -17,32 +17,22 @@ export default function Dashboard() {
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleDays, setScheduleDays] = useState([]);
 
-  const API_BASE = 'https://api.aaspasindia.com/api/smart-box';
+  const API_BASE = 'https://aaspas-smart-box-backend.onrender.com/api';
 
-  // Optimistic UI Toggle
+  // Optimistic UI Toggle - Instant response
   const toggleDevice = async () => {
-    // Immediate UI update (Optimistic)
-    setStatus(!status);
-    setLoading(true);
+    const newStatus = !status;
+    setStatus(newStatus); // Instant UI update
     
     try {
-      const response = await fetch(`${API_BASE}/toggle`, {
+      await fetch(`${API_BASE}/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
-      const data = await response.json();
-      
-      // Update with server response
-      setStatus(data.status);
-      setTimerActive(data.timerActive || false);
-      setTimerEndTime(data.timerEndTime);
-      setTimerDuration(data.timerDuration || 0);
     } catch (error) {
-      // Revert on error
-      setStatus(!status);
-      console.error('Error toggling device:', error);
+      setStatus(!newStatus); // Revert on error
+      console.error('Toggle error:', error);
     }
-    setLoading(false);
   };
 
   // Schedule Timer
@@ -150,9 +140,13 @@ export default function Dashboard() {
     }
   }, [timerActive, timerEndTime]);
 
-  // Fetch initial status
+  // Fetch status every 1 second (skip if recently toggled)
   useEffect(() => {
+    let lastToggle = 0;
+    
     const fetchStatus = async () => {
+      if (Date.now() - lastToggle < 500) return; // Skip if just toggled
+      
       try {
         const response = await fetch(`${API_BASE}/status`);
         const data = await response.json();
@@ -171,7 +165,11 @@ export default function Dashboard() {
         console.error('Error fetching status:', error);
       }
     };
+    
     fetchStatus();
+    const interval = setInterval(fetchStatus, 1000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Client-side only rendering for time
@@ -196,9 +194,9 @@ export default function Dashboard() {
               <div className="mb-6">
                 <Lightbulb 
                   size={80} 
-                  className={`mx-auto transition-all duration-300 ${
+                  className={`mx-auto transition-all duration-200 ${
                     status 
-                      ? 'text-yellow-400 drop-shadow-[0_0_20px_rgba(255,255,0,0.8)] animate-pulse-glow' 
+                      ? 'text-yellow-400 drop-shadow-[0_0_25px_rgba(255,255,0,0.9)]' 
                       : 'text-gray-500'
                   }`}
                 />
@@ -216,15 +214,14 @@ export default function Dashboard() {
 
               <button
                 onClick={toggleDevice}
-                disabled={loading}
-                className={`w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-200 flex items-center justify-center gap-2 ${
+                className={`w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-150 flex items-center justify-center gap-2 ${
                   status
-                    ? 'bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30'
-                    : 'bg-green-500 hover:bg-green-600 shadow-lg shadow-green-500/30'
-                } ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
+                    ? 'bg-red-500 hover:bg-red-600 active:bg-red-700 shadow-lg shadow-red-500/30'
+                    : 'bg-green-500 hover:bg-green-600 active:bg-green-700 shadow-lg shadow-green-500/30'
+                } hover:scale-105 active:scale-95`}
               >
                 <Power size={20} />
-                {loading ? 'Processing...' : (status ? 'Turn OFF' : 'Turn ON')}
+                {status ? 'Turn OFF' : 'Turn ON'}
               </button>
             </div>
           </div>
@@ -235,9 +232,9 @@ export default function Dashboard() {
               <div className="mb-6">
                 <Timer 
                   size={80} 
-                  className={`mx-auto transition-all duration-300 ${
+                  className={`mx-auto transition-all duration-200 ${
                     timerActive 
-                      ? 'text-blue-400 drop-shadow-[0_0_20px_rgba(59,130,246,0.8)] animate-pulse-glow' 
+                      ? 'text-blue-400 drop-shadow-[0_0_25px_rgba(59,130,246,0.9)]' 
                       : 'text-gray-500'
                   }`}
                 />
@@ -430,7 +427,8 @@ export default function Dashboard() {
         {/* Status Info */}
         <div className="mt-8 bg-white/5 backdrop-blur-lg rounded-2xl p-4 border border-white/10">
           <div className="text-center text-slate-300 text-sm">
-            <p>ESP32 API: https://api.aaspasindia.com/api/smart-box/status/simple</p>
+            <p>Backend: aaspas-smart-box-backend.onrender.com</p>
+            <p className="mt-1 text-green-400">🔄 Auto-refresh: 1 second</p>
             {mounted && <p className="mt-1">Last updated: {new Date().toLocaleTimeString()}</p>}
           </div>
         </div>
