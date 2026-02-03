@@ -19,20 +19,30 @@ export default function Dashboard() {
 
   const API_BASE = 'https://aaspas-smart-box-backend.onrender.com/api';
 
-  // Optimistic UI Toggle - Instant response
+  // Optimistic UI Toggle
   const toggleDevice = async () => {
-    const newStatus = !status;
-    setStatus(newStatus); // Instant UI update
+    // Immediate UI update (Optimistic)
+    setStatus(!status);
+    setLoading(true);
     
     try {
-      await fetch(`${API_BASE}/toggle`, {
+      const response = await fetch(`${API_BASE}/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
+      const data = await response.json();
+      
+      // Update with server response
+      setStatus(data.status);
+      setTimerActive(data.timerActive || false);
+      setTimerEndTime(data.timerEndTime);
+      setTimerDuration(data.timerDuration || 0);
     } catch (error) {
-      setStatus(!newStatus); // Revert on error
-      console.error('Toggle error:', error);
+      // Revert on error
+      setStatus(!status);
+      console.error('Error toggling device:', error);
     }
+    setLoading(false);
   };
 
   // Schedule Timer
@@ -140,13 +150,9 @@ export default function Dashboard() {
     }
   }, [timerActive, timerEndTime]);
 
-  // Fetch status every 1 second (skip if recently toggled)
+  // Fetch status every 1 second
   useEffect(() => {
-    let lastToggle = 0;
-    
     const fetchStatus = async () => {
-      if (Date.now() - lastToggle < 500) return; // Skip if just toggled
-      
       try {
         const response = await fetch(`${API_BASE}/status`);
         const data = await response.json();
@@ -166,8 +172,8 @@ export default function Dashboard() {
       }
     };
     
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 1000);
+    fetchStatus(); // Initial fetch
+    const interval = setInterval(fetchStatus, 1000); // Poll every 1 second
     
     return () => clearInterval(interval);
   }, []);
@@ -194,9 +200,9 @@ export default function Dashboard() {
               <div className="mb-6">
                 <Lightbulb 
                   size={80} 
-                  className={`mx-auto transition-all duration-200 ${
+                  className={`mx-auto transition-all duration-300 ${
                     status 
-                      ? 'text-yellow-400 drop-shadow-[0_0_25px_rgba(255,255,0,0.9)]' 
+                      ? 'text-yellow-400 drop-shadow-[0_0_20px_rgba(255,255,0,0.8)] animate-pulse-glow' 
                       : 'text-gray-500'
                   }`}
                 />
@@ -214,14 +220,15 @@ export default function Dashboard() {
 
               <button
                 onClick={toggleDevice}
-                className={`w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-150 flex items-center justify-center gap-2 ${
+                disabled={loading}
+                className={`w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-200 flex items-center justify-center gap-2 ${
                   status
-                    ? 'bg-red-500 hover:bg-red-600 active:bg-red-700 shadow-lg shadow-red-500/30'
-                    : 'bg-green-500 hover:bg-green-600 active:bg-green-700 shadow-lg shadow-green-500/30'
-                } hover:scale-105 active:scale-95`}
+                    ? 'bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30'
+                    : 'bg-green-500 hover:bg-green-600 shadow-lg shadow-green-500/30'
+                } ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
               >
                 <Power size={20} />
-                {status ? 'Turn OFF' : 'Turn ON'}
+                {loading ? 'Processing...' : (status ? 'Turn OFF' : 'Turn ON')}
               </button>
             </div>
           </div>
@@ -232,9 +239,9 @@ export default function Dashboard() {
               <div className="mb-6">
                 <Timer 
                   size={80} 
-                  className={`mx-auto transition-all duration-200 ${
+                  className={`mx-auto transition-all duration-300 ${
                     timerActive 
-                      ? 'text-blue-400 drop-shadow-[0_0_25px_rgba(59,130,246,0.9)]' 
+                      ? 'text-blue-400 drop-shadow-[0_0_20px_rgba(59,130,246,0.8)] animate-pulse-glow' 
                       : 'text-gray-500'
                   }`}
                 />
