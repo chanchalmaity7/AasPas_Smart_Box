@@ -17,7 +17,7 @@ export default function Dashboard() {
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleDays, setScheduleDays] = useState([]);
 
-  const API_BASE = 'https://aaspas-smart-box-backend.onrender.com';
+  const API_BASE = 'https://api.aaspasindia.com/api/smart-box';
 
   // Optimistic UI Toggle
   const toggleDevice = async () => {
@@ -26,7 +26,7 @@ export default function Dashboard() {
     setLoading(true);
     
     try {
-      const response = await fetch(`${API_BASE}/api/toggle`, {
+      const response = await fetch(`${API_BASE}/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -55,7 +55,7 @@ export default function Dashboard() {
     
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/schedule`, {
+      const response = await fetch(`${API_BASE}/schedule`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ minutes: totalMinutes })
@@ -82,7 +82,7 @@ export default function Dashboard() {
     
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/set-schedule`, {
+      const response = await fetch(`${API_BASE}/set-schedule`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -111,7 +111,7 @@ export default function Dashboard() {
   const clearSchedule = async () => {
     setLoading(true);
     try {
-      await fetch(`${API_BASE}/api/clear-schedule`, {
+      await fetch(`${API_BASE}/clear-schedule`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -154,7 +154,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/status`);
+        const response = await fetch(`${API_BASE}/status`);
         const data = await response.json();
         
         setStatus(data.status === '1' || data.status === true);
@@ -430,7 +430,7 @@ export default function Dashboard() {
         {/* Status Info */}
         <div className="mt-8 bg-white/5 backdrop-blur-lg rounded-2xl p-4 border border-white/10">
           <div className="text-center text-slate-300 text-sm">
-            <p>ESP32 API: {API_BASE}/api/status/simple</p>
+            <p>ESP32 API: https://api.aaspasindia.com/api/smart-box/status/simple</p>
             {mounted && <p className="mt-1">Last updated: {new Date().toLocaleTimeString()}</p>}
           </div>
         </div>
