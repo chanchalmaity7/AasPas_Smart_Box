@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { LogIn, UserPlus } from 'lucide-react';
 
@@ -12,6 +12,14 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const API_BASE = 'https://aaspas-smart-box-backend.onrender.com/api';
+
+  useEffect(() => {
+    // Check if already logged in
+    const token = localStorage.getItem('token');
+    if (token) {
+      router.push('/devices');
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

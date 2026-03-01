@@ -26,6 +26,13 @@ export default function Devices() {
     fetchDevices();
   }, []);
 
+  useEffect(() => {
+    // Auto-redirect to device if only one device
+    if (devices.length === 1) {
+      router.push(`/device/${devices[0].deviceId}`);
+    }
+  }, [devices]);
+
   const fetchDevices = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -178,8 +185,13 @@ export default function Devices() {
                     </h3>
                     <p className="text-slate-400 text-sm font-mono">{device.deviceId}</p>
                   </div>
-                  <div className={`p-3 rounded-full ${device.status ? 'bg-green-500/20' : 'bg-gray-500/20'}`}>
-                    <Power size={24} className={device.status ? 'text-green-400' : 'text-gray-400'} />
+                  <div className="flex gap-2">
+                    {device.relay1 && <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>}
+                    {device.relay2 && <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>}
+                    {device.relay3 && <div className="w-3 h-3 bg-cyan-400 rounded-full animate-pulse"></div>}
+                    {!device.relay1 && !device.relay2 && !device.relay3 && (
+                      <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+                    )}
                   </div>
                 </div>
 
@@ -197,9 +209,11 @@ export default function Devices() {
                       </>
                     )}
                   </div>
-                  <span className={`text-sm font-medium ${device.status ? 'text-green-400' : 'text-gray-400'}`}>
-                    {device.status ? 'ON' : 'OFF'}
-                  </span>
+                  <div className="flex gap-2 text-xs">
+                    <span className={device.relay1 ? 'text-yellow-400' : 'text-gray-500'}>💡</span>
+                    <span className={device.relay2 ? 'text-blue-400' : 'text-gray-500'}>🌀</span>
+                    <span className={device.relay3 ? 'text-cyan-400' : 'text-gray-500'}>💧</span>
+                  </div>
                 </div>
               </div>
             ))
