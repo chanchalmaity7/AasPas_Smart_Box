@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { ArrowLeft, Lightbulb, Fan, Droplets, Wifi, WifiOff } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Fan, Droplets, Wifi, WifiOff, Clock, Calendar, X } from 'lucide-react';
 
 export default function DeviceControl() {
   const router = useRouter();
@@ -10,6 +10,13 @@ export default function DeviceControl() {
   const [relay2, setRelay2] = useState(false);
   const [relay3, setRelay3] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showTimerModal, setShowTimerModal] = useState(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(null);
+  const [timerMinutes, setTimerMinutes] = useState(30);
+  const [scheduleType, setScheduleType] = useState('daily');
+  const [onTime, setOnTime] = useState('06:00');
+  const [offTime, setOffTime] = useState('08:00');
+  const [scheduleDate, setScheduleDate] = useState('');
 
   const API_BASE = 'https://aaspas-smart-box-backend.onrender.com/api';
 
@@ -49,7 +56,6 @@ export default function DeviceControl() {
     try {
       const token = localStorage.getItem('token');
       
-      // Optimistic update
       if (relayNum === 1) setRelay1(!relay1);
       if (relayNum === 2) setRelay2(!relay2);
       if (relayNum === 3) setRelay3(!relay3);
@@ -67,9 +73,149 @@ export default function DeviceControl() {
       }
     } catch (err) {
       console.error('Failed to toggle');
-      fetchStatus(); // Revert on error
+      fetchStatus();
     }
   };
+
+  const setTimer = async (relay) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_BASE}/devices/${id}/timer/${relay}`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ minutes: timerMinutes })
+      });
+      setShowTimerModal(null);
+      fetchStatus();
+    } catch (err) {
+      console.error('Failed to set timer');
+    }
+  };
+
+  const clearTimer = async (relay) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_BASE}/devices/${id}/timer/${relay}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      fetchStatus();
+    } catch (err) {
+      console.error('Failed to clear timer');
+    }
+  };
+
+  const setSchedule = async (relay) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_BASE}/devices/${id}/schedule/${relay}`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          type: scheduleType, 
+          onTime, 
+          offTime, 
+          date: scheduleType === 'once' ? scheduleDate : null 
+        })
+      });
+      setShowScheduleModal(null);
+      fetchStatus();
+    } catch (err) {
+      console.error('Failed to set schedule');
+    }
+  };
+
+  const clearSchedule = async (relay) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_BASE}/devices/${id}/schedule/${relay}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      fetchStatus();
+    } catch (err) {
+      console.error('Failed to clear schedule');
+    }
+  };
+
+  const getTimeRemaining = (endTime) => {
+    const diff = new Date(endTime) - new Date();
+    if (diff <= 0) return 'Ending...';
+    const mins = Math.floor(diff / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const RelayCard = ({ relay, name, icon: Icon, color, active, timer, schedule }) => (
+    <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20 hover:bg-white/15 transition-all duration-300">
+      <div className="text-center mb-4">
+        <div className={`inline-block p-6 rounded-full mb-4 transition-all duration-300 ${
+          active ? `bg-${color}-500/30 shadow-lg shadow-${color}-500/50` : 'bg-gray-500/20'
+        }`}>
+          <Icon size={48} className={`transition-all duration-300 ${
+            active ? `text-${color}-400 ${relay === 2 ? 'animate-spin' : 'animate-pulse'}` : 'text-gray-400'
+          }`} style={{ animationDuration: relay === 2 && active ? '2s' : '0s' }} />
+        </div>
+        <h3 className="text-xl font-bold text-white mb-1">{name}</h3>
+        <p className={`text-sm font-medium ${active ? `text-${color}-400` : 'text-gray-400'}`}>
+          {active ? 'ON' : 'OFF'}
+        </p>
+      </div>
+
+      {timer?.active && (
+        <div className="mb-3 bg-orange-500/20 border border-orange-500/50 rounded-lg p-2 text-center">
+          <div className="text-orange-300 text-xs font-medium">⏰ Timer Active</div>
+          <div className="text-orange-200 text-lg font-bold">{getTimeRemaining(timer.endTime)}</div>
+          <button onClick={() => clearTimer(relay)} className="text-orange-300 text-xs hover:text-orange-100 mt-1">
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {schedule?.active && (
+        <div className="mb-3 bg-blue-500/20 border border-blue-500/50 rounded-lg p-2 text-center">
+          <div className="text-blue-300 text-xs font-medium">📅 {schedule.type === 'daily' ? 'Daily' : 'One-time'}</div>
+          <div className="text-blue-200 text-sm">{schedule.onTime} - {schedule.offTime}</div>
+          {schedule.type === 'once' && <div className="text-blue-300 text-xs">{schedule.date}</div>}
+          <button onClick={() => clearSchedule(relay)} className="text-blue-300 text-xs hover:text-blue-100 mt-1">
+            Remove
+          </button>
+        </div>
+      )}
+      
+      <button
+        onClick={() => toggleRelay(relay)}
+        className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 mb-2 ${
+          active
+            ? `bg-gradient-to-r from-${color}-500 to-${color}-600 text-white shadow-lg shadow-${color}-500/50`
+            : 'bg-white/10 text-white hover:bg-white/20'
+        }`}
+      >
+        {active ? 'Turn OFF' : 'Turn ON'}
+      </button>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => setShowTimerModal(relay)}
+          className="py-2 px-3 bg-orange-500/20 text-orange-300 rounded-lg hover:bg-orange-500/30 transition-colors text-sm flex items-center justify-center gap-1"
+        >
+          <Clock size={14} /> Timer
+        </button>
+        <button
+          onClick={() => setShowScheduleModal(relay)}
+          className="py-2 px-3 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-colors text-sm flex items-center justify-center gap-1"
+        >
+          <Calendar size={14} /> Schedule
+        </button>
+      </div>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -82,7 +228,6 @@ export default function DeviceControl() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={() => router.push('/devices')}
@@ -107,161 +252,167 @@ export default function DeviceControl() {
           </div>
         </div>
 
-        {/* Device Name */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-white mb-2">{device?.deviceName}</h1>
           <p className="text-slate-400 font-mono">{device?.deviceId}</p>
         </div>
 
-        {/* Control Cards */}
         <div className="grid md:grid-cols-3 gap-6">
-          {/* Light Control */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300">
-            <div className="text-center mb-6">
-              <div className={`inline-block p-6 rounded-full mb-4 transition-all duration-300 ${
-                relay1 
-                  ? 'bg-yellow-500/30 shadow-lg shadow-yellow-500/50' 
-                  : 'bg-gray-500/20'
-              }`}>
-                <Lightbulb 
-                  size={48} 
-                  className={`transition-all duration-300 ${
-                    relay1 ? 'text-yellow-400 animate-pulse' : 'text-gray-400'
-                  }`}
-                />
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-2">{device?.relay1Name || 'Light'}</h3>
-              <p className={`text-sm font-medium ${relay1 ? 'text-yellow-400' : 'text-gray-400'}`}>
-                {relay1 ? 'ON' : 'OFF'}
-              </p>
-            </div>
-            
-            <button
-              onClick={() => toggleRelay(1)}
-              className={`w-full py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 ${
-                relay1
-                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/50'
-                  : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
-            >
-              {relay1 ? 'Turn OFF' : 'Turn ON'}
-            </button>
-          </div>
-
-          {/* Fan Control */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300">
-            <div className="text-center mb-6">
-              <div className={`inline-block p-6 rounded-full mb-4 transition-all duration-300 ${
-                relay2 
-                  ? 'bg-blue-500/30 shadow-lg shadow-blue-500/50' 
-                  : 'bg-gray-500/20'
-              }`}>
-                <Fan 
-                  size={48} 
-                  className={`transition-all duration-300 ${
-                    relay2 ? 'text-blue-400 animate-spin' : 'text-gray-400'
-                  }`}
-                  style={{ animationDuration: relay2 ? '2s' : '0s' }}
-                />
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-2">{device?.relay2Name || 'Fan'}</h3>
-              <p className={`text-sm font-medium ${relay2 ? 'text-blue-400' : 'text-gray-400'}`}>
-                {relay2 ? 'RUNNING' : 'STOPPED'}
-              </p>
-            </div>
-            
-            <button
-              onClick={() => toggleRelay(2)}
-              className={`w-full py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 ${
-                relay2
-                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/50'
-                  : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
-            >
-              {relay2 ? 'Stop Fan' : 'Start Fan'}
-            </button>
-          </div>
-
-          {/* Water Pump Control */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300">
-            <div className="text-center mb-6">
-              <div className={`inline-block p-6 rounded-full mb-4 transition-all duration-300 ${
-                relay3 
-                  ? 'bg-cyan-500/30 shadow-lg shadow-cyan-500/50' 
-                  : 'bg-gray-500/20'
-              }`}>
-                <Droplets 
-                  size={48} 
-                  className={`transition-all duration-300 ${
-                    relay3 ? 'text-cyan-400' : 'text-gray-400'
-                  }`}
-                />
-                {relay3 && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-12 h-12 bg-cyan-400/30 rounded-full animate-ping"></div>
-                  </div>
-                )}
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-2">{device?.relay3Name || 'Water Pump'}</h3>
-              <p className={`text-sm font-medium ${relay3 ? 'text-cyan-400' : 'text-gray-400'}`}>
-                {relay3 ? 'PUMPING' : 'IDLE'}
-              </p>
-            </div>
-            
-            <button
-              onClick={() => toggleRelay(3)}
-              className={`w-full py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 ${
-                relay3
-                  ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/50'
-                  : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
-            >
-              {relay3 ? 'Stop Pump' : 'Start Pump'}
-            </button>
-          </div>
+          <RelayCard 
+            relay={1} 
+            name={device?.relay1Name || 'Light'} 
+            icon={Lightbulb} 
+            color="yellow" 
+            active={relay1}
+            timer={device?.relay1Timer}
+            schedule={device?.relay1Schedule}
+          />
+          <RelayCard 
+            relay={2} 
+            name={device?.relay2Name || 'Fan'} 
+            icon={Fan} 
+            color="blue" 
+            active={relay2}
+            timer={device?.relay2Timer}
+            schedule={device?.relay2Schedule}
+          />
+          <RelayCard 
+            relay={3} 
+            name={device?.relay3Name || 'Water Pump'} 
+            icon={Droplets} 
+            color="cyan" 
+            active={relay3}
+            timer={device?.relay3Timer}
+            schedule={device?.relay3Schedule}
+          />
         </div>
 
-        {/* Status Bar */}
-        <div className="mt-8 bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <div className={`text-3xl font-bold mb-1 ${relay1 ? 'text-yellow-400' : 'text-gray-500'}`}>
-                {relay1 ? '💡' : '⚫'}
+        {/* Timer Modal */}
+        {showTimerModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-white/20">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-white">⏰ Set Timer</h2>
+                <button onClick={() => setShowTimerModal(null)} className="text-gray-400 hover:text-white">
+                  <X size={24} />
+                </button>
               </div>
-              <p className="text-slate-400 text-sm">Light</p>
-            </div>
-            <div>
-              <div className={`text-3xl font-bold mb-1 ${relay2 ? 'text-blue-400' : 'text-gray-500'}`}>
-                {relay2 ? '🌀' : '⚫'}
+              
+              <p className="text-slate-300 mb-4">Device will turn ON now and auto OFF after:</p>
+              
+              <div className="mb-6">
+                <label className="block text-slate-300 text-sm font-medium mb-2">Minutes</label>
+                <input
+                  type="number"
+                  value={timerMinutes}
+                  onChange={(e) => setTimerMinutes(parseInt(e.target.value))}
+                  min="1"
+                  max="1440"
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <div className="flex gap-2 mt-2">
+                  {[15, 30, 60, 120].map(m => (
+                    <button
+                      key={m}
+                      onClick={() => setTimerMinutes(m)}
+                      className="flex-1 py-2 bg-slate-700 text-slate-300 rounded-lg hover:bg-slate-600 text-sm"
+                    >
+                      {m}m
+                    </button>
+                  ))}
+                </div>
               </div>
-              <p className="text-slate-400 text-sm">Fan</p>
-            </div>
-            <div>
-              <div className={`text-3xl font-bold mb-1 ${relay3 ? 'text-cyan-400' : 'text-gray-500'}`}>
-                {relay3 ? '💧' : '⚫'}
-              </div>
-              <p className="text-slate-400 text-sm">Pump</p>
+
+              <button
+                onClick={() => setTimer(showTimerModal)}
+                className="w-full py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-red-600 transition-all"
+              >
+                Start Timer
+              </button>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Schedule Modal */}
+        {showScheduleModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-white/20">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-white">📅 Set Schedule</h2>
+                <button onClick={() => setShowScheduleModal(null)} className="text-gray-400 hover:text-white">
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-slate-300 text-sm font-medium mb-2">Schedule Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setScheduleType('daily')}
+                    className={`py-2 rounded-lg font-medium transition-colors ${
+                      scheduleType === 'daily' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }`}
+                  >
+                    Daily
+                  </button>
+                  <button
+                    onClick={() => setScheduleType('once')}
+                    className={`py-2 rounded-lg font-medium transition-colors ${
+                      scheduleType === 'once' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }`}
+                  >
+                    One-time
+                  </button>
+                </div>
+              </div>
+
+              {scheduleType === 'once' && (
+                <div className="mb-4">
+                  <label className="block text-slate-300 text-sm font-medium mb-2">Date</label>
+                  <input
+                    type="date"
+                    value={scheduleDate}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-slate-300 text-sm font-medium mb-2">ON Time</label>
+                  <input
+                    type="time"
+                    value={onTime}
+                    onChange={(e) => setOnTime(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 text-sm font-medium mb-2">OFF Time</label>
+                  <input
+                    type="time"
+                    value={offTime}
+                    onChange={(e) => setOffTime(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSchedule(showScheduleModal)}
+                className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all"
+              >
+                Save Schedule
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-
-      <style jsx>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-        @keyframes ping {
-          75%, 100% {
-            transform: scale(2);
-            opacity: 0;
-          }
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }
