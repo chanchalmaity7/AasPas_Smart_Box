@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
-import { Plus, Power, Wifi, WifiOff, LogOut } from 'lucide-react';
+import { io } from 'socket.io-client';
+import { Plus, Wifi, WifiOff, LogOut } from 'lucide-react';
 
 export default function Devices() {
   const router = useRouter();
@@ -10,8 +11,12 @@ export default function Devices() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [user, setUser] = useState(null);
+  const [liveState, setLiveState] = useState('CONNECTING');
+  const socketRef = useRef(null);
+  const subscribedRef = useRef(new Set());
 
   const API_BASE = 'https://aaspas-smart-box-backend.onrender.com/api';
+  const SOCKET_URL = API_BASE.replace(/\/api\/?$/, '');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -25,6 +30,81 @@ export default function Devices() {
     setUser(JSON.parse(userData));
     fetchDevices();
   }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return undefined;
+    }
+
+    const socket = io(SOCKET_URL, {
+      autoConnect: true,
+      transports: ['websocket'],
+      upgrade: false,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 10000,
+      auth: { token },
+    });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      setLiveState('LIVE');
+      subscribedRef.current = new Set();
+      devices.forEach((item) => {
+        if (item?.deviceId) {
+          socket.emit('device:subscribe', { deviceId: item.deviceId });
+          subscribedRef.current.add(item.deviceId);
+        }
+      });
+    });
+
+    socket.on('device:status', (payload) => {
+      if (!payload?.deviceId) {
+        return;
+      }
+      setDevices((prev) => {
+        const index = prev.findIndex((item) => item.deviceId === payload.deviceId);
+        if (index === -1) {
+          return prev;
+        }
+        const next = [...prev];
+        next[index] = { ...next[index], ...payload };
+        return next;
+      });
+    });
+
+    socket.on('disconnect', () => {
+      setLiveState('RECONNECTING');
+    });
+
+    socket.on('connect_error', () => {
+      setLiveState('ERROR');
+    });
+
+    return () => {
+      socket.removeAllListeners();
+      socket.disconnect();
+      socketRef.current = null;
+      subscribedRef.current = new Set();
+    };
+  }, []);
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket?.connected) {
+      return;
+    }
+    devices.forEach((item) => {
+      if (!item?.deviceId || subscribedRef.current.has(item.deviceId)) {
+        return;
+      }
+      socket.emit('device:subscribe', { deviceId: item.deviceId });
+      subscribedRef.current.add(item.deviceId);
+    });
+  }, [devices]);
 
   useEffect(() => {
     // Auto-redirect to device if only one device
@@ -93,7 +173,12 @@ export default function Devices() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white">My Devices</h1>
-            <p className="text-slate-300">Welcome, {user?.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-slate-300">Welcome, {user?.name}</p>
+              <span className={`text-xs ${liveState === 'LIVE' ? 'text-emerald-300' : liveState === 'RECONNECTING' ? 'text-amber-300' : 'text-rose-300'}`}>
+                {liveState === 'LIVE' ? 'Live' : liveState === 'RECONNECTING' ? 'Reconnecting' : 'Socket issue'}
+              </span>
+            </div>
           </div>
           <button
             onClick={logout}
